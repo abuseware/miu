@@ -167,26 +167,31 @@ int check_bl(const char *pathname){
 //calls
 int open(const char *pathname, int flags, mode_t mode){
   chk(pathname,EACCES,-1);
+  TRACE("[OPEN]");
   return calls.open(pathname, flags, mode);
 }
 
 int open64(const char *pathname, int flags, mode_t mode){
   chk(pathname,EACCES,-1);
+  TRACE("[OPEN64]");
   return calls.open64(pathname, flags, mode);
 }
 
 struct __dirstream *opendir(const char *name){
   chk(name,EACCES,NULL);
+  TRACE("[OPENDIR]");
   return calls.opendir(name);
 }
 
 ssize_t getxattr(const char *path, const char *name, void *value, size_t size){
   chk(path,ENODATA,-1);
+  TRACE("[GETXATTR]");
   return calls.getxattr(path, name, value, size);
 }
 
 ssize_t lgetxattr(const char *path, const char *name, void *value, size_t size){
   chk(path,ENODATA,-1);
+  TRACE("[LGETXATTR]");
   return calls.lgetxattr(path, name, value, size);
 }
 
@@ -200,10 +205,12 @@ int bind(int socket, const struct sockaddr *address, socklen_t address_len){
     strcat(rulestr,port);
     chk(rulestr,EACCES,-1);
   }
+  TRACE("[BIND]");
   return calls.bind(socket,address,address_len);
 }
 
 int execve(const char *filename, char *const argv[], char *const envp[]){
   chk(filename,EACCES,-1);
+  TRACE("[EXECVE]");
   return calls.execve(filename,argv,envp);
 }
