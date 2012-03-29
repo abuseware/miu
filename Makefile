@@ -1,5 +1,5 @@
 all:
-	${CC} -shared -fPIC -o libmiu.so main.c
+	${CC} ${CFLAGS} -shared -fPIC -lconfig -ldl -o libmiu.so main.c
 
 clean:
 	rm *.o

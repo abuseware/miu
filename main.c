@@ -9,8 +9,8 @@
  * Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
  */
 
-#define CFGPATH "/etc/miu.conf"
-
+//#define CFGPATH "/etc/miu.conf"
+#define CFGPATH "/home/thc/Develop/miu/miu.conf"
 //Basic includes
 #include <unistd.h>
 #include <stdlib.h>
@@ -114,7 +114,7 @@ void getabspath(const char *path, char *dest){
   char *spos;
 
   spos=strrchr(path,'/');
-  memset(dest,0,sizeof(dest));
+  memset(dest,0,sizeof(dest-1));
   if(spos!=NULL){
     strncpy(dest,path,spos-path);
     if(!access(dest,F_OK)){
@@ -148,7 +148,7 @@ int check_bl(const char *pathname){
         }
 
 
-        if(gid==getgid() || uid==getuid()){  //compare
+        if(gid==(int)getgid() || uid==(int)getuid()){  //compare
 
           //blacklist
                 if(check(rolecfg,"blacklist",path) || checkre(rolecfg,"blacklist_regexp",path))
