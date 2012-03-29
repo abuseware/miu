@@ -9,8 +9,8 @@
  * Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
  */
 
-//#define CFGPATH "/etc/miu.conf"
-#define CFGPATH "/home/thc/Develop/miu/miu.conf"
+#define CFGPATH "/etc/miu.conf"
+
 //Basic includes
 #include <unistd.h>
 #include <stdlib.h>
