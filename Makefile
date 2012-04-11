@@ -1,6 +1,9 @@
+CC=clang
+CFLAGS=-Wall -Wextra
+
 all:
-	${CC} ${CFLAGS} -shared -fPIC -lconfig -ldl -o libmiu.so main.c
+	@echo '[CC] libmiu.so'
+	@${CC} ${CFLAGS} -shared -fPIC -lconfig -ldl -o libmiu.so main.c
 
 clean:
-	rm *.o
-	rm *.so
+	@rm *.so

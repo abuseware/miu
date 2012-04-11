@@ -1,5 +1,4 @@
-/*
- * Application:   MIU - MAC In Userspace
+/* Application: MIU - MAC In Userspace
  * Author: thc_flow
  *
  * Created on October 21, 2011, 9:56 AM
@@ -9,82 +8,81 @@
  * Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
  */
 
-#define CFGPATH "/etc/miu.conf"
 
-//Basic includes
+/* HEEEEY, LOOK HERE! */
+#define CFGPATH "/etc/miu.conf"
+/* OK, NOW GTFO */
+
+/* oldfags */
 #include <unistd.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+/* errno */
 #include <errno.h>
+/* bind */
 #include <sys/socket.h>
 #include <netinet/in.h>
-
-//dlsym
-#define __USE_GNU
-#include <dlfcn.h>
-
-//configuration
+/* int*_t */
+#include <linux/types.h>
+/* typedef DIR */
+#define _GNU_SOURCE
+#define __USE_LARGEFILE64
+  #include <dirent.h>
+#undef __USE_LARGEFILE64
+#undef _GNU_SOURCE
+/* config */
 #include <libconfig.h>
+#include <stdio.h>
 #include <regex.h>
-
-#ifdef EBUG
-  #define TRACE(x) fprintf(stderr,"[%s]\n",x); fflush(stderr)
-#else
-  #define TRACE(x)
-#endif
+#include <string.h>
+/* dlsym */
+#define __USE_GNU
+  #include <dlfcn.h>
+#undef __USE_GNU
 
 #define chk(chk,err,ret) if(check_bl(chk)){errno=err; return ret;}
 
-//structure for libconfig
+/* vars */
 struct config_t cfg;
+char lastdirname[PATH_MAX];
 
-//original syscalls struct
-struct {
-  int (*open)(const char *pathname, int flags, mode_t mode);
-  int (*open64)(const char *pathname, int flags, mode_t mode);
-  struct __dirstream *(*opendir)(const char *name);
+/* original syscalls */
+int32_t (*calls_open)(const char *pathname, int flags, mode_t mode); /* !!! DEPRECATED !!!! */
+int64_t (*calls_open64)(const char *pathname, int flags, mode_t mode);
+DIR *(*calls_opendir)(const char *name);
+struct dirent *(*calls_readdir)(DIR *dirp);
+struct dirent64 *(*calls_readdir64)(DIR *dirp);
+ssize_t (*calls_getxattr)(const char *path, const char *name, void *value, size_t size);
+ssize_t (*calls_lgetxattr)(const char *path, const char *name, void *value, size_t size);
+int (*calls_bind)(int socket, const struct sockaddr *address, socklen_t address_len);
+int (*calls_execve)(const char *filename, char *const argv[], char *const envp[]);
 
-  ssize_t (*getxattr)(const char *path, const char *name, void *value, size_t size);
-  ssize_t (*lgetxattr)(const char *path, const char *name, void *value, size_t size);
-
-  int (*bind)(int socket, const struct sockaddr *address, socklen_t address_len);
-
-  int (*execve)(const char *filename, char *const argv[], char *const envp[]);
-} calls;
-
-//constructor
+/* constructor */
 void __attribute__ ((constructor)) init(void){
-  TRACE("Loading MIU");
-  //init && read config
-  TRACE("Loading config...");
+  /* init && read config */
   config_init(&cfg);
   if(!config_read_file(&cfg, CFGPATH)){
     fprintf(stderr,"[%s:%i %s]\n",config_error_file(&cfg),config_error_line(&cfg),config_error_text(&cfg));
   }
 
-  //syscalls
-  TRACE("Linking calls table");
-  calls.open=dlsym(RTLD_NEXT, "open");
-  calls.open64=dlsym(RTLD_NEXT, "open64");
-  calls.opendir=dlsym(RTLD_NEXT, "opendir");
-
-  calls.getxattr=dlsym(RTLD_NEXT, "getxattr");
-  calls.lgetxattr=dlsym(RTLD_NEXT, "lgetxattr");
-
-  calls.bind=dlsym(RTLD_NEXT, "bind");
-
-  calls.execve=dlsym(RTLD_NEXT, "execve");
+  /* syscalls */
+  calls_open=dlsym(RTLD_NEXT, "open"); /* !!! DEPRECATED !!!! */
+  calls_open64=dlsym(RTLD_NEXT, "open64");
+  calls_readdir=dlsym(RTLD_NEXT, "readdir");
+  calls_readdir64=dlsym(RTLD_NEXT, "readdir64");
+  calls_opendir=dlsym(RTLD_NEXT, "opendir");
+  calls_getxattr=dlsym(RTLD_NEXT, "getxattr");
+  calls_lgetxattr=dlsym(RTLD_NEXT, "lgetxattr");
+  calls_bind=dlsym(RTLD_NEXT, "bind");
+  calls_execve=dlsym(RTLD_NEXT, "execve");
 }
 
-//destructor
+/* destructor */
 void __attribute__ ((destructor)) destruct(void){
-  TRACE("Unloading MIU");
-  //free config
+  /* free config */
   config_destroy(&cfg);
 }
 
-//helpers
+/* helpers */
 int check(config_setting_t *config, const char *table, const char *value){
   int i;
   config_setting_t *subcfg=NULL;
@@ -130,31 +128,31 @@ void getabspath(const char *path, char *dest){
 int check_bl(const char *pathname){
   int i;
   int gid=-1, uid=-1, pass=0;
-  config_setting_t *rootcfg=NULL,*rolecfg=NULL, *subcfg=NULL; //root "config", roles, subs (gid/blaclist/etc...)
+  config_setting_t *rootcfg=NULL,*rolecfg=NULL, *subcfg=NULL; /* root "config", roles, subs (gid/blaclist/etc...) */
   char path[1024];
 
   getabspath(pathname,path);
 
-  if((rootcfg=config_lookup(&cfg,"config"))!=NULL) //lookup for config=[
-    for(i=0;i<config_setting_length(rootcfg);i++){  //for i in {...};{...};
-      if((rolecfg=config_setting_get_elem(rootcfg,i))){  //get role
+  if((rootcfg=config_lookup(&cfg,"config"))!=NULL) /* lookup for config=[ */
+    for(i=0;i<config_setting_length(rootcfg);i++){  /* for i in {...};{...}; */
+      if((rolecfg=config_setting_get_elem(rootcfg,i))){  /* get role */
 
-        if((subcfg=config_setting_get_member(rolecfg,"gid"))!=NULL){ //get gid
+        if((subcfg=config_setting_get_member(rolecfg,"gid"))!=NULL){ /* get gid */
           gid=config_setting_get_int(subcfg);
         }
 
-        if((subcfg=config_setting_get_member(rolecfg,"uid"))!=NULL){ //get uid
+        if((subcfg=config_setting_get_member(rolecfg,"uid"))!=NULL){ /* get uid */
           uid=config_setting_get_int(subcfg);
         }
 
 
-        if(gid==(int)getgid() || uid==(int)getuid()){  //compare
+        if(gid==(int)getgid() || uid==(int)getuid()){  /* compare */
 
-          //blacklist
+          /* blacklist */
                 if(check(rolecfg,"blacklist",path) || checkre(rolecfg,"blacklist_regexp",path))
                   pass=1;
 
-          //whitelist
+          /* whitelist */
                 if(check(rolecfg,"whitelist",path) || checkre(rolecfg,"whitelist_regexp",path))
                   pass=0;
         }
@@ -163,36 +161,59 @@ int check_bl(const char *pathname){
   return pass;
 }
 
-
-//calls
-int open(const char *pathname, int flags, mode_t mode){
+/* calls */
+int32_t open(const char *pathname, int flags, mode_t mode){  /* !!! DEPRECATED !!!! */
   chk(pathname,EACCES,-1);
-  TRACE("[OPEN]");
-  return calls.open(pathname, flags, mode);
+  return calls_open(pathname, flags, mode);
 }
 
-int open64(const char *pathname, int flags, mode_t mode){
+int64_t open64(const char *pathname, int flags, mode_t mode){
   chk(pathname,EACCES,-1);
-  TRACE("[OPEN64]");
-  return calls.open64(pathname, flags, mode);
+  return calls_open64(pathname, flags, mode);
 }
 
-struct __dirstream *opendir(const char *name){
+DIR *opendir(const char *name){
   chk(name,EACCES,NULL);
-  TRACE("[OPENDIR]");
-  return calls.opendir(name);
+  strcpy(lastdirname,name);
+  return calls_opendir(name);
+}
+
+struct dirent *readdir(DIR *dirp){
+  struct dirent *d;
+  char fullname[PATH_MAX];
+  if((d=calls_readdir(dirp))!=NULL){
+    strcpy(fullname,lastdirname);
+    strcat(fullname,"/");
+    strcat(fullname,d->d_name);
+    if((strcmp(d->d_name,".") && strcmp(d->d_name,"..") && check_bl(fullname)) || !strcmp(fullname,CFGPATH)){
+      d=calls_readdir(dirp);
+    }
+  }
+  return d;
+}
+
+struct dirent64 *readdir64(DIR *dirp){
+  struct dirent64 *d;
+  char fullname[PATH_MAX];
+  if((d=calls_readdir64(dirp))!=NULL){
+    strcpy(fullname,lastdirname);
+    strcat(fullname,"/");
+    strcat(fullname,d->d_name);
+    if((strcmp(d->d_name,".") && strcmp(d->d_name,"..") && check_bl(fullname)) || !strcmp(fullname,CFGPATH)){
+      d=calls_readdir64(dirp);
+    }
+  }
+  return d;
 }
 
 ssize_t getxattr(const char *path, const char *name, void *value, size_t size){
   chk(path,ENODATA,-1);
-  TRACE("[GETXATTR]");
-  return calls.getxattr(path, name, value, size);
+  return calls_getxattr(path, name, value, size);
 }
 
 ssize_t lgetxattr(const char *path, const char *name, void *value, size_t size){
   chk(path,ENODATA,-1);
-  TRACE("[LGETXATTR]");
-  return calls.lgetxattr(path, name, value, size);
+  return calls_lgetxattr(path, name, value, size);
 }
 
 int bind(int socket, const struct sockaddr *address, socklen_t address_len){
@@ -205,12 +226,10 @@ int bind(int socket, const struct sockaddr *address, socklen_t address_len){
     strcat(rulestr,port);
     chk(rulestr,EACCES,-1);
   }
-  TRACE("[BIND]");
-  return calls.bind(socket,address,address_len);
+  return calls_bind(socket,address,address_len);
 }
 
 int execve(const char *filename, char *const argv[], char *const envp[]){
   chk(filename,EACCES,-1);
-  TRACE("[EXECVE]");
-  return calls.execve(filename,argv,envp);
+  return calls_execve(filename,argv,envp);
 }
