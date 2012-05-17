@@ -6,9 +6,8 @@ This library provides very simple mandatory access control system, based on
 hijacking libc calls.
 
 Example configuration is provided in example.conf, please, copy it to
-/etc/miu.conf and modify.
-URGENT! Remember to replace backslashes with double backslashes! This is needed
-by libconfig.
+/etc/miu.conf and modify. Remember to replace backslashes with double
+backslashes! This is needed by libconfig.
 
 -[Compilation/Installation]-----------------------------------------------------
 Check if you have installed libconfig in your system, then type
@@ -18,12 +17,12 @@ Check if you have installed libconfig in your system, then type
   cp libmiu.so /usr/local/lib/libmiu.so
   $EDITOR /etc/miu.conf
 
-Testing
+--Testing--
 
   export LD_PRELOAD=/usr/local/lib/libmiu.so
 
 then try to access files blacklisted in config.
 
-Install
+--Install--
 
   echo "/usr/local/lib/libmiu.so"> /etc/ld.so.preload
