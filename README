@@ -5,12 +5,11 @@ MIU - MAC In Userspace
 This library provides very simple mandatory access control system, based on
 hijacking libc calls.
 
-Example configuration is provided in example.conf, please, copy it to
-/etc/miu.conf and modify. Remember to replace backslashes with double
-backslashes! This is needed by libconfig.
+Example configuration is provided in example.ini, please, copy it to
+/etc/miu.ini and modify.
 
 -[Compilation/Installation]-----------------------------------------------------
-Check if you have installed libconfig in your system, then type
+Check if you have installed iniparser in your system, then type
 
   make
   cp example.conf /etc/miu.conf
