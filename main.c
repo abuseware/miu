@@ -1,4 +1,4 @@
-/* Application: MIU - MAC In Userspace
+/* Application: MIU - MAC In Userspace v 2.0
  * Author: thc_flow
  *
  * Created on October 21, 2011, 9:56 AM
@@ -10,12 +10,15 @@
 
 
 /* HEEEEY, LOOK HERE! */
-#define CFGPATH "/etc/miu.conf"
+#ifndef CFGPATH
+  #define CFGPATH "/etc/miu.ini"
+#endif
 /* OK, NOW GTFO */
 
 /* oldfags */
 #include <unistd.h>
 #include <stdlib.h>
+#include <limits.h>
 /* errno */
 #include <errno.h>
 /* bind */
@@ -23,14 +26,11 @@
 #include <netinet/in.h>
 /* int*_t */
 #include <linux/types.h>
-/* typedef DIR */
-#define _GNU_SOURCE
-#define __USE_LARGEFILE64
-  #include <dirent.h>
-#undef __USE_LARGEFILE64
-#undef _GNU_SOURCE
+/* groups */
+#include <sys/types.h>
+#include <grp.h>
 /* config */
-#include <libconfig.h>
+#include <iniparser.h>
 #include <stdio.h>
 #include <regex.h>
 #include <string.h>
@@ -42,15 +42,82 @@
 #define chk(chk,err,ret) if(check_bl(chk)){errno=err; return ret;}
 
 /* vars */
-struct config_t cfg;
-char lastdirname[PATH_MAX];
+struct dynlist{
+  int count;
+  char **list;
+};
+
+char buff[PATH_MAX];
+
+struct dynlist blacklist;
+struct dynlist blacklist_re;
+struct dynlist whitelist;
+struct dynlist whitelist_re;
+
+char *genname(char *sname, char *kname){
+  strcpy(buff,sname);
+  strcat(buff,":");
+  strcat(buff,kname);
+  return buff;
+}
+
+void dynlist_init(struct dynlist *l){
+  l->count=0;
+  l->list=malloc(0);
+}
+
+void dynlist_append(struct dynlist *l,char *str){
+  int len;
+  l->list=realloc(l->list,(l->count+1)*sizeof(int));
+  len=strlen(str);
+  l->list[l->count]=calloc((size_t)(len+1),sizeof(char));
+  strcpy(l->list[l->count],str);
+  l->count++;
+}
+
+void dynlist_clean(struct dynlist *l){
+  for(int i=0;i<l->count;i++){
+    free(l->list[i]);
+  }
+  free(l->list);
+  l->count=0;
+}
+
+void dynlist_from_str(struct dynlist *l, char *str){
+  char *item;
+  char tmp[PATH_MAX];
+
+  strcpy(tmp,str);
+  item=strtok(tmp," ");
+  while(item!=NULL){
+    dynlist_append(l,item);
+    item=strtok(NULL," ");
+  }
+}
+
+int dynlist_check(struct dynlist *l,char *path){
+  int i;
+
+  for(i=0;i<l->count;i++)
+    if(!strcmp(l->list[i],path))
+      return 1;
+  return 0;
+}
+
+int dynlist_checkre(struct dynlist *l,char *path){
+  int i;
+  regex_t re;
+
+  for(i=0;i<l->count;i++)
+    if(!regcomp(&re,l->list[i],REG_EXTENDED))
+      if(!regexec(&re,path,(size_t)0,NULL,0))
+        return 1;
+  return 0;
+}
 
 /* original syscalls */
 int32_t (*calls_open)(const char *pathname, int flags, mode_t mode); /* !!! DEPRECATED !!!! */
 int64_t (*calls_open64)(const char *pathname, int flags, mode_t mode);
-DIR *(*calls_opendir)(const char *name);
-struct dirent *(*calls_readdir)(DIR *dirp);
-struct dirent64 *(*calls_readdir64)(DIR *dirp);
 ssize_t (*calls_getxattr)(const char *path, const char *name, void *value, size_t size);
 ssize_t (*calls_lgetxattr)(const char *path, const char *name, void *value, size_t size);
 int (*calls_bind)(int socket, const struct sockaddr *address, socklen_t address_len);
@@ -58,18 +125,59 @@ int (*calls_execve)(const char *filename, char *const argv[], char *const envp[]
 
 /* constructor */
 void __attribute__ ((constructor)) init(void){
-  /* init && read config */
-  config_init(&cfg);
-  if(!config_read_file(&cfg, CFGPATH)){
-    fprintf(stderr,"[%s:%i %s]\n",config_error_file(&cfg),config_error_line(&cfg),config_error_text(&cfg));
+  struct group *grp;
+  dictionary *config;
+  char *username;
+  char *groupname;
+  char tmplist[PATH_MAX];
+
+  /* init lists */
+  dynlist_init(&blacklist);
+  dynlist_init(&blacklist_re);
+  dynlist_init(&whitelist);
+  dynlist_init(&whitelist_re);
+
+  /* get user and group */
+  username = getlogin();
+  grp = getgrgid(getgid());
+  groupname = grp->gr_name;
+
+  /* init config */
+  config = iniparser_load(CFGPATH);
+
+  /* generate lists */
+  strcpy(buff,"user ");
+  strcat(buff,username);
+  if(iniparser_find_entry(config,buff)){
+    strcpy(tmplist,iniparser_getstring(config,genname(buff,"blacklist"),""));
+    dynlist_from_str(&blacklist,tmplist);
+    strcpy(tmplist,iniparser_getstring(config,genname(buff,"blacklist_re"),""));
+    dynlist_from_str(&blacklist_re,tmplist);
+    strcpy(tmplist,iniparser_getstring(config,genname(buff,"whitelist"),""));
+    dynlist_from_str(&whitelist,tmplist);
+    strcpy(tmplist,iniparser_getstring(config,genname(buff,"whitelist_re"),""));
+    dynlist_from_str(&whitelist_re,tmplist);
   }
+
+  strcpy(buff,"group ");
+  strcat(buff,groupname);
+  if(iniparser_find_entry(config,buff)){
+    strcpy(tmplist,iniparser_getstring(config,genname(buff,"blacklist"),""));
+    dynlist_from_str(&blacklist,tmplist);
+    strcpy(tmplist,iniparser_getstring(config,genname(buff,"blacklist_re"),""));
+    dynlist_from_str(&blacklist_re,tmplist);
+    strcpy(tmplist,iniparser_getstring(config,genname(buff,"whitelist"),""));
+    dynlist_from_str(&whitelist,tmplist);
+    strcpy(tmplist,iniparser_getstring(config,genname(buff,"whitelist_re"),""));
+    dynlist_from_str(&whitelist_re,tmplist);
+  }
+
+
+  iniparser_freedict(config);
 
   /* syscalls */
   calls_open=dlsym(RTLD_NEXT, "open"); /* !!! DEPRECATED !!!! */
   calls_open64=dlsym(RTLD_NEXT, "open64");
-  calls_readdir=dlsym(RTLD_NEXT, "readdir");
-  calls_readdir64=dlsym(RTLD_NEXT, "readdir64");
-  calls_opendir=dlsym(RTLD_NEXT, "opendir");
   calls_getxattr=dlsym(RTLD_NEXT, "getxattr");
   calls_lgetxattr=dlsym(RTLD_NEXT, "lgetxattr");
   calls_bind=dlsym(RTLD_NEXT, "bind");
@@ -78,86 +186,32 @@ void __attribute__ ((constructor)) init(void){
 
 /* destructor */
 void __attribute__ ((destructor)) destruct(void){
-  /* free config */
-  config_destroy(&cfg);
-}
-
-/* helpers */
-int check(config_setting_t *config, const char *table, const char *value){
-  int i;
-  config_setting_t *subcfg=NULL;
-
-  if((subcfg=config_setting_get_member(config,table))!=NULL)
-    for(i=0;i<config_setting_length(subcfg);i++)
-      if(!strcmp(config_setting_get_string_elem(subcfg,i),value))
-        return 1;
-  return 0;
-}
-
-int checkre(config_setting_t *config, const char *table, const char *value){
-  int i;
-  config_setting_t *subcfg=NULL;
-  regex_t re;
-
-  if((subcfg=config_setting_get_member(config,table))!=NULL)
-    for(i=0;i<config_setting_length(subcfg);i++)
-      if(!regcomp(&re,config_setting_get_string_elem(subcfg,i),REG_EXTENDED))
-        if(!regexec(&re,value,(size_t)0,NULL,0))
-          return 1;
-  return 0;
-}
-
-void getabspath(const char *path, char *dest){
-  char oldcwd[1024];
-  char *spos;
-
-  spos=strrchr(path,'/');
-  memset(dest,0,sizeof(dest-1));
-  if(spos!=NULL){
-    strncpy(dest,path,spos-path);
-    if(!access(dest,F_OK)){
-      getcwd(oldcwd,sizeof(oldcwd)-1);
-      chdir(dest);
-      getcwd(dest,sizeof(dest)-1);
-      chdir(oldcwd);
-      strcat(dest,spos);
-    } else strcpy(dest,path);
-  } else strcpy(dest,path);
+  /* clear lists */
+  dynlist_clean(&blacklist);
+  dynlist_clean(&blacklist_re);
+  dynlist_clean(&whitelist);
+  dynlist_clean(&whitelist_re);
 }
 
 int check_bl(const char *pathname){
-  int i;
-  int gid=-1, uid=-1, pass=0;
-  config_setting_t *rootcfg=NULL,*rolecfg=NULL, *subcfg=NULL; /* root "config", roles, subs (gid/blaclist/etc...) */
-  char path[1024];
+  char path[PATH_MAX]="";
+  int pass=0;
 
-  getabspath(pathname,path);
+  if(strrchr(pathname,'/')==NULL){
+    getcwd(path,PATH_MAX);
+    strcat(path,"/");
+  }
 
-  if((rootcfg=config_lookup(&cfg,"config"))!=NULL) /* lookup for config=[ */
-    for(i=0;i<config_setting_length(rootcfg);i++){  /* for i in {...};{...}; */
-      if((rolecfg=config_setting_get_elem(rootcfg,i))){  /* get role */
+  strcat(path,pathname);
 
-        if((subcfg=config_setting_get_member(rolecfg,"gid"))!=NULL){ /* get gid */
-          gid=config_setting_get_int(subcfg);
-        }
+  /* blacklist */
+  if(dynlist_check(&blacklist,path) || dynlist_checkre(&blacklist_re,path))
+    pass=1;
 
-        if((subcfg=config_setting_get_member(rolecfg,"uid"))!=NULL){ /* get uid */
-          uid=config_setting_get_int(subcfg);
-        }
+  /* whitelist */
+  if(dynlist_check(&whitelist,path) || dynlist_checkre(&whitelist_re,path))
+    pass=0;
 
-
-        if(gid==(int)getgid() || uid==(int)getuid()){  /* compare */
-
-          /* blacklist */
-                if(check(rolecfg,"blacklist",path) || checkre(rolecfg,"blacklist_regexp",path))
-                  pass=1;
-
-          /* whitelist */
-                if(check(rolecfg,"whitelist",path) || checkre(rolecfg,"whitelist_regexp",path))
-                  pass=0;
-        }
-      }
-    }
   return pass;
 }
 
@@ -170,40 +224,6 @@ int32_t open(const char *pathname, int flags, mode_t mode){  /* !!! DEPRECATED !
 int64_t open64(const char *pathname, int flags, mode_t mode){
   chk(pathname,EACCES,-1);
   return calls_open64(pathname, flags, mode);
-}
-
-DIR *opendir(const char *name){
-  chk(name,EACCES,NULL);
-  strcpy(lastdirname,name);
-  return calls_opendir(name);
-}
-
-struct dirent *readdir(DIR *dirp){
-  struct dirent *d;
-  char fullname[PATH_MAX];
-  if((d=calls_readdir(dirp))!=NULL){
-    strcpy(fullname,lastdirname);
-    strcat(fullname,"/");
-    strcat(fullname,d->d_name);
-    if((strcmp(d->d_name,".") && strcmp(d->d_name,"..") && check_bl(fullname)) || !strcmp(fullname,CFGPATH)){
-      d=calls_readdir(dirp);
-    }
-  }
-  return d;
-}
-
-struct dirent64 *readdir64(DIR *dirp){
-  struct dirent64 *d;
-  char fullname[PATH_MAX];
-  if((d=calls_readdir64(dirp))!=NULL){
-    strcpy(fullname,lastdirname);
-    strcat(fullname,"/");
-    strcat(fullname,d->d_name);
-    if((strcmp(d->d_name,".") && strcmp(d->d_name,"..") && check_bl(fullname)) || !strcmp(fullname,CFGPATH)){
-      d=calls_readdir64(dirp);
-    }
-  }
-  return d;
 }
 
 ssize_t getxattr(const char *path, const char *name, void *value, size_t size){
