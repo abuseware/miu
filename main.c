@@ -1,11 +1,6 @@
 /* Application: MIU - MAC In Userspace v 2.0
  * Author: thc_flow
- *
  * Created on October 21, 2011, 9:56 AM
- *
- * This work is licensed under the Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License.
- * To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-nd/3.0/ or send a letter to
- * Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
  */
 
 
@@ -39,7 +34,7 @@
   #include <dlfcn.h>
 #undef __USE_GNU
 
-#define chk(chk,err,ret) if(check_bl(chk)){errno=err; return ret;}
+#define chk(chk, err, ret) if(check_bl(chk)){errno=err; return ret;}
 
 /* vars */
 struct dynlist{
@@ -55,62 +50,60 @@ struct dynlist whitelist;
 struct dynlist whitelist_re;
 
 char *genname(char *sname, char *kname){
-  strcpy(buff,sname);
-  strcat(buff,":");
-  strcat(buff,kname);
+  strcpy(buff, sname);
+  strcat(buff, ":");
+  strcat(buff, kname);
   return buff;
 }
 
 void dynlist_init(struct dynlist *l){
-  l->count=0;
-  l->list=malloc(0);
+  l->count = 0;
+  l->list = malloc(0);
 }
 
-void dynlist_append(struct dynlist *l,char *str){
+void dynlist_append(struct dynlist *l, char *str){
   int len;
-  l->list=realloc(l->list,(l->count+1)*sizeof(int));
-  len=strlen(str);
-  l->list[l->count]=calloc((size_t)(len+1),sizeof(char));
-  strcpy(l->list[l->count],str);
+
+  l->list = realloc(l->list, (l->count + 1)*sizeof(int));
+  len = strlen(str);
+  l->list[l->count] = calloc((size_t)(len+1), sizeof(char));
+  strcpy(l->list[l->count], str);
   l->count++;
 }
 
 void dynlist_clean(struct dynlist *l){
-  for(int i=0;i<l->count;i++){
+  for(int i = 0; i < l->count; i++){
     free(l->list[i]);
   }
   free(l->list);
-  l->count=0;
+  l->count = 0;
 }
 
 void dynlist_from_str(struct dynlist *l, char *str){
   char *item;
   char tmp[PATH_MAX];
 
-  strcpy(tmp,str);
-  item=strtok(tmp," ");
-  while(item!=NULL){
-    dynlist_append(l,item);
-    item=strtok(NULL," ");
+  strcpy(tmp, str);
+  item = strtok(tmp, " ");
+  while(item != NULL){
+    dynlist_append(l, item);
+    item = strtok(NULL, " ");
   }
 }
 
-int dynlist_check(struct dynlist *l,char *path){
-  int i;
-
-  for(i=0;i<l->count;i++)
-    if(!strcmp(l->list[i],path))
+int dynlist_check(struct dynlist *l, char *path){
+  for(int i = 0; i < l->count; i++)
+    if(!strcmp(l->list[i], path))
       return 1;
   return 0;
 }
 
-int dynlist_checkre(struct dynlist *l,char *path){
-  int i;
+int dynlist_checkre(struct dynlist *l, char *path){
   regex_t re;
 
-  for(i=0;i<l->count;i++)
-    if(!regcomp(&re,l->list[i],REG_EXTENDED))
-      if(!regexec(&re,path,(size_t)0,NULL,0))
+  for(int i = 0; i < l->count; i++)
+    if(!regcomp(&re, l->list[i], REG_EXTENDED))
+      if(!regexec(&re, path, (size_t)0, NULL, 0))
         return 1;
   return 0;
 }
@@ -129,7 +122,7 @@ void __attribute__ ((constructor)) init(void){
   dictionary *config;
   char *username;
   char *groupname;
-  char tmplist[PATH_MAX];
+  char tmp[PATH_MAX];
 
   /* init lists */
   dynlist_init(&blacklist);
@@ -146,32 +139,23 @@ void __attribute__ ((constructor)) init(void){
   config = iniparser_load(CFGPATH);
 
   /* generate lists */
-  strcpy(buff,"user ");
-  strcat(buff,username);
-  if(iniparser_find_entry(config,buff)){
-    strcpy(tmplist,iniparser_getstring(config,genname(buff,"blacklist"),""));
-    dynlist_from_str(&blacklist,tmplist);
-    strcpy(tmplist,iniparser_getstring(config,genname(buff,"blacklist_re"),""));
-    dynlist_from_str(&blacklist_re,tmplist);
-    strcpy(tmplist,iniparser_getstring(config,genname(buff,"whitelist"),""));
-    dynlist_from_str(&whitelist,tmplist);
-    strcpy(tmplist,iniparser_getstring(config,genname(buff,"whitelist_re"),""));
-    dynlist_from_str(&whitelist_re,tmplist);
+  strcpy(tmp, "user ");
+  strcat(tmp, username);
+  if(iniparser_find_entry(config, tmp)){
+    dynlist_from_str(&blacklist, iniparser_getstring(config, genname(tmp, "blacklist"), ""));
+    dynlist_from_str(&blacklist_re, iniparser_getstring(config, genname(tmp, "blacklist_regexp"), ""));
+    dynlist_from_str(&whitelist, iniparser_getstring(config, genname(tmp, "whitelist"), ""));
+    dynlist_from_str(&whitelist_re, iniparser_getstring(config, genname(tmp, "whitelist_regexp"), ""));
   }
 
-  strcpy(buff,"group ");
-  strcat(buff,groupname);
-  if(iniparser_find_entry(config,buff)){
-    strcpy(tmplist,iniparser_getstring(config,genname(buff,"blacklist"),""));
-    dynlist_from_str(&blacklist,tmplist);
-    strcpy(tmplist,iniparser_getstring(config,genname(buff,"blacklist_re"),""));
-    dynlist_from_str(&blacklist_re,tmplist);
-    strcpy(tmplist,iniparser_getstring(config,genname(buff,"whitelist"),""));
-    dynlist_from_str(&whitelist,tmplist);
-    strcpy(tmplist,iniparser_getstring(config,genname(buff,"whitelist_re"),""));
-    dynlist_from_str(&whitelist_re,tmplist);
+  strcpy(tmp,"group ");
+  strcat(tmp,groupname);
+  if(iniparser_find_entry(config,tmp)){
+    dynlist_from_str(&blacklist, iniparser_getstring(config, genname(tmp, "blacklist"), ""));
+    dynlist_from_str(&blacklist_re, iniparser_getstring(config, genname(tmp, "blacklist_regexp"), ""));
+    dynlist_from_str(&whitelist, iniparser_getstring(config, genname(tmp, "whitelist"), ""));
+    dynlist_from_str(&whitelist_re, iniparser_getstring(config, genname(tmp, "whitelist_regexp"), ""));
   }
-
 
   iniparser_freedict(config);
 
@@ -197,11 +181,10 @@ int check_bl(const char *pathname){
   char path[PATH_MAX]="";
   int pass=0;
 
-  if(strrchr(pathname,'/')==NULL){
+  if(strrchr(pathname,'/')==NULL && strstr(pathname,"port:")!=pathname){
     getcwd(path,PATH_MAX);
     strcat(path,"/");
   }
-
   strcat(path,pathname);
 
   /* blacklist */
