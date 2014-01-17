@@ -18,14 +18,14 @@ Compilation & Installation
 ====================================================================================================
 Check if you have installed iniparser in your system, then type
 
-  make
-  sudo make install
-  $EDITOR /etc/miu.conf
+    make
+    sudo make install
+    $EDITOR /etc/miu.conf
 
 Then type in shell:
 
-  env LD_PRELOAD=/lib/libmiu.so $SHELL
+    env LD_PRELOAD=/lib/libmiu.so $SHELL
 
 And try to abuse, if everything looks ok:
 
-  sudo -c 'echo /lib/libmiu.so > /etc/ld.so.preload'
+    sudo -c 'echo /lib/libmiu.so > /etc/ld.so.preload'

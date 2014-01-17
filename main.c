@@ -1,5 +1,5 @@
 /* Application: MIU - MAC In Userspace v 2.0
- * Author: thc_flow
+ * Author: Licho
  * Created on October 21, 2011, 9:56 AM
  */
 
@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <linux/limits.h>
 /* errno */
 #include <errno.h>
 /* bind */
@@ -37,12 +38,13 @@
 #define chk(chk, err, ret) if(check_bl(chk)){errno=err; return ret;}
 
 /* vars */
+int i = 0;
+char buff[PATH_MAX];
+
 struct dynlist{
   int count;
   char **list;
 };
-
-char buff[PATH_MAX];
 
 struct dynlist blacklist;
 struct dynlist blacklist_re;
@@ -72,7 +74,7 @@ void dynlist_append(struct dynlist *l, char *str){
 }
 
 void dynlist_clean(struct dynlist *l){
-  for(int i = 0; i < l->count; i++){
+  for(i = 0; i < l->count; i++){
     free(l->list[i]);
   }
   free(l->list);
@@ -92,7 +94,7 @@ void dynlist_from_str(struct dynlist *l, char *str){
 }
 
 int dynlist_check(struct dynlist *l, char *path){
-  for(int i = 0; i < l->count; i++)
+  for(i = 0; i < l->count; i++)
     if(!strcmp(l->list[i], path))
       return 1;
   return 0;
@@ -101,7 +103,7 @@ int dynlist_check(struct dynlist *l, char *path){
 int dynlist_checkre(struct dynlist *l, char *path){
   regex_t re;
 
-  for(int i = 0; i < l->count; i++)
+  for(i = 0; i < l->count; i++)
     if(!regcomp(&re, l->list[i], REG_EXTENDED))
       if(!regexec(&re, path, (size_t)0, NULL, 0))
         return 1;
@@ -109,10 +111,10 @@ int dynlist_checkre(struct dynlist *l, char *path){
 }
 
 /* original syscalls */
-int32_t (*calls_open)(const char *pathname, int flags, mode_t mode); /* !!! DEPRECATED !!!! */
-int64_t (*calls_open64)(const char *pathname, int flags, mode_t mode);
-ssize_t (*calls_getxattr)(const char *path, const char *name, void *value, size_t size);
-ssize_t (*calls_lgetxattr)(const char *path, const char *name, void *value, size_t size);
+int32_t (* calls_open)(const char *pathname, int flags, mode_t mode); /* !!! DEPRECATED !!!! */
+int64_t (* calls_open64)(const char *pathname, int flags, mode_t mode);
+ssize_t (* calls_getxattr)(const char *path, const char *name, void *value, size_t size);
+ssize_t (* calls_lgetxattr)(const char *path, const char *name, void *value, size_t size);
 int (*calls_bind)(int socket, const struct sockaddr *address, socklen_t address_len);
 int (*calls_execve)(const char *filename, char *const argv[], char *const envp[]);
 
@@ -160,12 +162,12 @@ void __attribute__ ((constructor)) init(void){
   iniparser_freedict(config);
 
   /* syscalls */
-  calls_open=dlsym(RTLD_NEXT, "open"); /* !!! DEPRECATED !!!! */
-  calls_open64=dlsym(RTLD_NEXT, "open64");
-  calls_getxattr=dlsym(RTLD_NEXT, "getxattr");
-  calls_lgetxattr=dlsym(RTLD_NEXT, "lgetxattr");
-  calls_bind=dlsym(RTLD_NEXT, "bind");
-  calls_execve=dlsym(RTLD_NEXT, "execve");
+  calls_open = (int32_t (*)(const char *, int, mode_t)) dlsym(RTLD_NEXT, "open"); /* !!! DEPRECATED !!!! */
+  calls_open64 = (int64_t (*)(const char *, int, mode_t)) dlsym(RTLD_NEXT, "open64");
+  calls_getxattr = (ssize_t (*)(const char *path, const char *name, void *value, size_t size)) dlsym(RTLD_NEXT, "getxattr");
+  calls_lgetxattr = (ssize_t (*)(const char *path, const char *name, void *value, size_t size)) dlsym(RTLD_NEXT, "lgetxattr");
+  calls_bind = (int (*)(int, const struct sockaddr *, socklen_t)) dlsym(RTLD_NEXT, "bind");
+  calls_execve = (int (*)(const char *, char *const *, char *const *)) dlsym(RTLD_NEXT, "execve");
 }
 
 /* destructor */
