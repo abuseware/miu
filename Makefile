@@ -1,5 +1,4 @@
-CC=clang
-CFLAGS=-Wall -Wextra -std=gnu99 -O4 -march=native -fstack-protector
+CFLAGS+=-pedantic -ansi -O3 -march=native -fstack-protector -fomit-frame-pointer
 PREFIX=
 
 all:
